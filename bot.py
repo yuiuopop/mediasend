@@ -778,7 +778,8 @@ def handle_start(message):
 
 @bot.message_handler(commands=['newcategory'])
 def handle_newcategory(message):
-    if not is_admin(message.from_user.id): return
+    if not is_admin(message.from_user.id):
+        return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You do not have permission to create categories.</i>", parse_mode="HTML")
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
         return bot.reply_to(message, "Usage: `/newcategory <Name>`\nEx: `/newcategory 🏎️ Cars`", parse_mode="HTML")
@@ -961,7 +962,9 @@ def handle_text(message):
         bot.reply_to(message, f"<b>❖ REFERRAL SYSTEM ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>🏆 Your Points: {points}</i>\n\n<b>🔗 Invite Link:</b>\n<code>{referral_link}</code>\n\n<i>Invite friends to earn +{REFERRAL_BONUS} points each!</i>", parse_mode="HTML")
         return
         
-    if text == "👑 Admin Panel" and admin_mode:
+    if text == "👑 Admin Panel":
+        if not admin_mode:
+            return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You do not have permission to open the Admin Panel.</i>", parse_mode="HTML")
         bot.reply_to(message, "<b>❖ ADMIN CONTROL PANEL ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select an operation below to manage the bot.</i>", reply_markup=get_admin_panel_markup(user_id), parse_mode="HTML")
         return
 
@@ -1663,7 +1666,27 @@ def cb_panel_back(call):
     bot.edit_message_text("<b>❖ ADMIN CONTROL PANEL ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select an operation below to manage the bot.</i>", call.message.chat.id, call.message.message_id, reply_markup=get_admin_panel_markup(call.from_user.id), parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
-# --- Media Management via Categories ---
+# --- Media Management
+@bot.message_handler(commands=['debug'])
+def handle_debug(message):
+    user_id = message.from_user.id
+    admin_mode = is_admin(user_id)
+    super_admin = is_super_admin(user_id)
+    text = (
+        f"<b>❖ DEBUG INFO ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"• <b>Your ID:</b> <code>{user_id}</code>\n"
+        f"• <b>Admin Status:</b> {'✅ Yes' if admin_mode else '❌ No'}\n"
+        f"• <b>Super Admin:</b> {'✅ Yes' if super_admin else '❌ No'}\n"
+        f"• <b>Configured Super Admins:</b> <code>{len(ADMIN_IDS)}</code>"
+    )
+    bot.reply_to(message, text, parse_mode="HTML")
+
+@bot.message_handler(commands=['admin'])
+def handle_admin_command(message):
+    user_id = message.from_user.id
+    if not is_admin(user_id):
+        return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You do not have permission to open the Admin Panel.</i>", parse_mode="HTML")
+    bot.reply_to(message, "<b>❖ ADMIN CONTROL PANEL ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select an operation below to manage the bot.</i>", reply_markup=get_admin_panel_markup(user_id), parse_mode="HTML")
 @bot.callback_query_handler(func=lambda call: call.data == "manage_cats")
 def cb_manage_cats(call):
     if not is_admin(call.from_user.id): return bot.answer_callback_query(call.id, "Unauthorized")
@@ -1757,7 +1780,8 @@ def cb_ignore(call): bot.answer_callback_query(call.id)
 
 @bot.message_handler(commands=['setreq'])
 def handle_setreq(message):
-    if not is_admin(message.from_user.id): return
+    if not is_admin(message.from_user.id):
+        return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You do not have permission to change access rules.</i>", parse_mode="HTML")
     args = message.text.split()
     if len(args) != 3:
         return bot.reply_to(message, "Usage: `/setreq <CategoryID> <Limit>`\nYou can get the Category ID from the Category Limits menu.", parse_mode="HTML")
@@ -1851,7 +1875,8 @@ def handle_givepoints(message):
 @bot.message_handler(commands=['search'])
 def handle_search(message):
     """Usage: /search <user_id | @username | name>"""
-    if not is_admin(message.from_user.id): return
+    if not is_admin(message.from_user.id):
+        return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You do not have permission to use this command.</i>", parse_mode="HTML")
     args = message.text.split(maxsplit=1)
     if len(args) < 2 or not args[1].strip():
         return bot.reply_to(
@@ -1934,7 +1959,7 @@ def cb_removeadmin_confirm(call):
 def handle_addadmin(message):
     """Super-admin only. Usage: /addadmin <user_id>"""
     if not is_super_admin(message.from_user.id):
-        return bot.reply_to(message, "⛔ Only super admins can use this command.")
+        return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Only Super Admins can add new members to the team.</i>", parse_mode="HTML")
     args = message.text.split()
     if len(args) != 2 or not args[1].isdigit():
         return bot.reply_to(
