@@ -45,7 +45,17 @@ def get_db_pool():
     return db_pool
 
 def get_db():
-    return get_db_pool().getconn()
+    import time
+    max_retries = 5
+    for i in range(max_retries):
+        try:
+            return get_db_pool().getconn()
+        except Exception as e:
+            print(f"Database connection attempt {i+1} failed: {e}")
+            if i < max_retries - 1:
+                time.sleep(2) # wait for DB to wake up
+            else:
+                raise e
 
 def release_db(conn):
     get_db_pool().putconn(conn)
@@ -2028,15 +2038,21 @@ if __name__ == "__main__":
 
             def self_ping():
                 """Periodically pings the health server to prevent Render from sleeping."""
-                time.sleep(20) # wait for server to start
+                time.sleep(30) # wait for server to start
+                render_url = os.environ.get("RENDER_EXTERNAL_URL")
+                
+                # If no RENDER_EXTERNAL_URL, try to construct one or fallback to localhost
+                ping_url = render_url if render_url else f"http://localhost:{port}"
+                
+                print(f"Anti-Sleep pinger targeting: {ping_url}")
                 while True:
                     try:
-                        # Ping the root URL
-                        requests.get(f"http://localhost:{port}")
-                        print("Self-ping successful. Staying awake!")
+                        # Ping the URL
+                        res = requests.get(ping_url, timeout=10)
+                        print(f"Self-ping to {ping_url} status: {res.status_code}. Staying awake!")
                     except Exception as e:
                         print(f"Self-ping failed: {e}")
-                    time.sleep(600) # Ping every 10 minutes
+                    time.sleep(600) # Ping every 10 minutes (Render sleeps after 15)
 
             threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port, use_reloader=False), daemon=True).start()
             threading.Thread(target=self_ping, daemon=True).start()
