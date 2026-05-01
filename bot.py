@@ -1985,6 +1985,26 @@ if __name__ == "__main__":
         bot.remove_webhook()
         try: bot.infinity_polling()
         except Exception as e: print(f"Polling error: {e}")
+        else:
+            # ── POLLING MODE WITH DUMMY SERVER FOR RENDER ───────────────────
+            print("Starting in POLLING mode (local dev / Render Free Tier).")
+            bot.remove_webhook()  # clear any stale webhook
+            
+            # Start a dummy Flask server in a separate thread to satisfy Render's port scan
+            if Flask is not None:
+                app = Flask(__name__)
+                @app.route("/")
+                def health():
+                    return "Bot is running in polling mode!", 200
+                
+                port = int(os.environ.get("PORT", 10000))
+                threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port, use_reloader=False)).start()
+                print(f"Dummy web server started on port {port}")
+
+            try: 
+                bot.infinity_polling()
+            except Exception as e: 
+                print(f"Polling error: {e}")
 
     else:
         # ── POLLING MODE (local / default) ──────────────────────────────
