@@ -2015,7 +2015,6 @@ if __name__ == "__main__":
         bot.remove_webhook()  # clear any stale webhook
         
         # Start a dummy Flask server in a separate thread to satisfy Render/Koyeb port scans
-        # This prevents the platform from killing the app when running in 'Web Service' mode
         if Flask is not None and os.environ.get("PORT"):
             port = int(os.environ.get("PORT"))
             app = Flask(__name__)
@@ -2024,8 +2023,24 @@ if __name__ == "__main__":
                 return "Bot is polling happily in the background!", 200
             
             import threading
+            import time
+            import requests
+
+            def self_ping():
+                """Periodically pings the health server to prevent Render from sleeping."""
+                time.sleep(20) # wait for server to start
+                while True:
+                    try:
+                        # Ping the root URL
+                        requests.get(f"http://localhost:{port}")
+                        print("Self-ping successful. Staying awake!")
+                    except Exception as e:
+                        print(f"Self-ping failed: {e}")
+                    time.sleep(600) # Ping every 10 minutes
+
             threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port, use_reloader=False), daemon=True).start()
-            print(f"Dummy health server started on port {port} to pass cloud health checks.")
+            threading.Thread(target=self_ping, daemon=True).start()
+            print(f"Dummy health server and Anti-Sleep pinger started on port {port}.")
 
         try: 
             bot.infinity_polling()
