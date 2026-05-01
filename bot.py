@@ -1226,14 +1226,19 @@ def process_caption_edit(message):
 def cb_admin_stats(call):
     if not is_admin(call.from_user.id): return bot.answer_callback_query(call.id, "Unauthorized")
     users_count, media_count, total_received = get_stats()
-    text = (f"📊 **Bot Stats Dashboard**\n\n👥 **Total Registered Users:** {users_count}\n📦 **Total Media Uploaded:** {media_count}\n📤 **Total Media Distributed:** {total_received}")
+    text = (
+        f"<b>❖ ANALYTICS ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Overall performance metrics:</i>\n\n"
+        f"• <b>Total Users:</b> <i>{users_count}</i>\n"
+        f"• <b>Stored Media:</b> <i>{media_count} items</i>\n"
+        f"• <b>Total Extractions:</b> <i>{total_received}</i>"
+    )
     
     markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton("👥 User List", callback_data="admin_user_list_0"))
+    markup.add(InlineKeyboardButton("👥 User Directory", callback_data="admin_user_list_0"))
     markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_panel_back"))
     
-    try: bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
-    except: pass
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_user_list_"))
@@ -1259,9 +1264,14 @@ def cb_admin_user_list(call):
         if page < total_pages - 1: nav_btns.append(InlineKeyboardButton("➡️", callback_data=f"admin_user_list_{page+1}"))
         markup.row(*nav_btns)
         
-    markup.add(InlineKeyboardButton("‹ Back to Stats", callback_data="admin_stats"))
+    markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_stats"))
     
-    bot.edit_message_text("<b>❖ USER DIRECTORY ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select a user to view their full profile.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    text = (
+        f"<b>❖ USER DIRECTORY ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Browse registered members (Page {page+1}):</i>"
+    )
+    
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("user_detail_"))
@@ -1278,19 +1288,22 @@ def cb_admin_user_detail(call):
     ref_count = get_total_referrals(user_id)
     breakdown = get_user_cat_breakdown(user_id)
     
-    text = (f"👤 **User Profile: {u_name if u_name else 'N/A'}**\n\n"
-            f"🆔 **ID:** `{u_id}`\n"
-            f"📅 **Joined:** {join_date}\n"
-            f"💰 **Points Balance:** {points}\n"
-            f"👥 **Total Referrals:** {ref_count}\n"
-            f"📦 **Total Media Extracted:** {total_media}\n\n"
-            f"📑 **Category Breakdown:**\n")
+    text = (
+        f"<b>❖ USER PROFILE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Details for: <b>{u_name if u_name else 'N/A'}</b></i>\n\n"
+        f"• <b>ID:</b> <code>{u_id}</code>\n"
+        f"• <b>Joined:</b> <i>{join_date}</i>\n"
+        f"• <b>Balance:</b> <i>{points} points</i>\n"
+        f"• <b>Referrals:</b> <i>{ref_count}</i>\n"
+        f"• <b>Extracted:</b> <i>{total_media}</i>\n\n"
+        f"<b>Category Activity:</b>\n"
+    )
     
     if breakdown:
         for cat_name, count in breakdown:
-            text += f"- {cat_name}: {count}\n"
+            text += f"• {cat_name}: <i>{count} times</i>\n"
     else:
-        text += "_No specific category data yet._"
+        text += "<i>• No activity recorded.</i>"
         
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -1310,10 +1323,12 @@ def cb_givepoints_init(call):
     bot.answer_callback_query(call.id)
     msg = bot.send_message(
         call.message.chat.id,
-        f"💰 **Give Points to User `{target_uid}`**\n\n"
-        f"Send the number of points to add (use negative to deduct, e.g. `-5`).\n"
-        f"Type /cancel to abort.",
-        parse_mode="Markdown"
+        f"<b>❖ ADJUST BALANCE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Target User: <b><code>{target_uid}</code></b></i>\n\n"
+        f"<i>Please send the amount of points to adjust.</i>\n"
+        f"• <i>Positive (e.g. 10) to add</i>\n"
+        f"• <i>Negative (e.g. -5) to deduct</i>",
+        parse_mode="HTML"
     )
     bot.register_next_step_handler(msg, process_givepoints, target_uid, back_page)
 
@@ -1520,7 +1535,7 @@ def cb_cat_add_content(call):
         call.message.chat.id,
         _build_session_text(cat_id, cat_name, ctype, call.from_user.id),
         reply_markup=_build_session_markup(cat_id),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
     admin_session_msg[call.from_user.id] = (call.message.chat.id, sent.message_id)
 
@@ -1769,18 +1784,21 @@ def process_givepoints(message, target_uid, back_page):
     action = "added" if amount >= 0 else "deducted"
     bot.reply_to(
         message,
-        f"✅ **Done!** `{abs(amount)}` points {action} for user `{target_uid}`.\n"
-        f"💰 Their new balance: **{new_balance} points**.",
-        parse_mode="Markdown"
+        f"<b>❖ BALANCE UPDATED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Action: <b>{abs(amount)} points {action}</b></i>\n"
+        f"<b>Target ID:</b> <code>{target_uid}</code>\n"
+        f"<b>New Balance:</b> <code>{new_balance} points</code>",
+        parse_mode="HTML"
     )
     # Notify the user silently
     try:
         direction = f"+{amount}" if amount >= 0 else str(amount)
         bot.send_message(
             target_uid,
-            f"🎁 An admin has adjusted your balance: **{direction} points**!\n"
-            f"💰 Your new balance: **{new_balance} points**.",
-            parse_mode="Markdown"
+            f"<b>❖ WALLET UPDATE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+            f"<i>An admin has adjusted your balance: <b>{direction} points</b></i>\n\n"
+            f"<b>Your new balance:</b> <code>{new_balance} points</code>",
+            parse_mode="HTML"
         )
     except: pass
 
@@ -1813,17 +1831,20 @@ def handle_givepoints(message):
     action = "added" if amount >= 0 else "deducted"
     bot.reply_to(
         message,
-        f"✅ `{abs(amount)}` points {action} for user `{target_uid}` (@{user[1] or 'no username'}).\n"
-        f"💰 New balance: **{new_balance} points**.",
-        parse_mode="Markdown"
+        f"<b>❖ BALANCE UPDATED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>User: <b>{user[1] or 'User'}</b> (<code>{target_uid}</code>)</i>\n"
+        f"<i>Action: <b>{abs(amount)} points {action}</b></i>\n\n"
+        f"<b>New Balance:</b> <code>{new_balance} points</code>",
+        parse_mode="HTML"
     )
     try:
         direction = f"+{amount}" if amount >= 0 else str(amount)
         bot.send_message(
             target_uid,
-            f"🎁 An admin has adjusted your balance: **{direction} points**!\n"
-            f"💰 Your new balance: **{new_balance} points**.",
-            parse_mode="Markdown"
+            f"<b>❖ WALLET UPDATE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+            f"<i>An admin has adjusted your balance: <b>{direction} points</b></i>\n\n"
+            f"<b>Your new balance:</b> <code>{new_balance} points</code>",
+            parse_mode="HTML"
         )
     except: pass
 
@@ -1835,19 +1856,19 @@ def handle_search(message):
     if len(args) < 2 or not args[1].strip():
         return bot.reply_to(
             message,
-            "🔍 **User Search**\n\n"
-            "**Usage:** `/search <query>`\n"
-            "_Search by:_\n"
-            "User ID (e.g. `/search 123456789`)\n"
-            "Username (e.g. `/search john` or `/search @john`)",
-            parse_mode="Markdown"
+            "<b>❖ COMMAND USAGE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+            "<code>/search &lt;query&gt;</code>\n\n"
+            "<b>Query can be:</b>\n"
+            "• <i>User ID (e.g. 123456)</i>\n"
+            "• <i>Username (e.g. john or @john)</i>",
+            parse_mode="HTML"
         )
 
     query = args[1].strip().lstrip('@')
     results = search_users(query)
 
     if not results:
-        return bot.reply_to(message, f"🔍 No users found matching `{query}`.", parse_mode="HTML")
+        return bot.reply_to(message, f"<b>❖ SEARCH ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>No users found matching: <b>{query}</b></i>", parse_mode="HTML")
 
     markup = InlineKeyboardMarkup()
     for u_id, u_name, u_points in results:
@@ -1857,11 +1878,16 @@ def handle_search(message):
             callback_data=f"user_detail_{u_id}_0"
         ))
 
+    text = (
+        f"<b>❖ SEARCH RESULTS ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Found <b>{len(results)}</b> results for: <b>{query}</b></i>"
+    )
+    
     bot.reply_to(
         message,
-        f"🔍 **Search results for** `{query}` — {len(results)} found:",
+        text,
         reply_markup=markup,
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 # ================= Admin Management =================
