@@ -808,18 +808,18 @@ def _build_session_text(cat_id, cat_name, ctype, admin_id=None):
     if admin_id and admin_id in admin_session_stats:
         s = admin_session_stats[admin_id]
         stats_line = (
-            f"\n📊 **This session:**\n"
-            f"Sent: {s['sent']}  Saved: {s['saved']}  Duplicates: {s['dupes']}\n"
+            f"\n<b>Session Summary:</b>\n"
+            f"<i>Sent: {s['sent']} | Saved: {s['saved']} | Dupes: {s['dupes']}</i>\n"
         )
 
     return (
-        f"📂 **Upload Session Active**\n\n"
-        f"🏷️ Name: **{cat_name}**\n"
-        f"📦 Type: **{type_label}**\n"
-        f"📄 Items in category: **{count}**\n"
+        f"<b>❖ UPLOAD SESSION ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Target: <b>{cat_name}</b></i>\n"
+        f"<i>Expected: {type_label}</i>\n"
+        f"<i>Current Items: {count}</i>\n"
         f"{stats_line}\n"
-        f"ℹ️ {instruction}\n\n"
-        f"Press **✅ Done** when finished, or **‹ Back** to change category."
+        f"<b>Instructions:</b>\n<i>{instruction}</i>\n\n"
+        f"<i>Press <b>Done</b> when finished.</i>"
     )
 
 def _build_session_markup(cat_id):
@@ -859,7 +859,7 @@ def handle_media_upload(message):
     # Enforce content type
     ctype = admin_content_type.get(admin_id, 'media')
     if ctype != 'media':
-        bot.reply_to(message, f"⚠️ This category only accepts **{'text' if ctype == 'text' else 'GIF & Stickers'}** content.", parse_mode="HTML")
+        bot.reply_to(message, f"⚠️ This category only accepts <b>{'text' if ctype == 'text' else 'GIF & Stickers'}</b> content.", parse_mode="HTML")
         return
 
     if message.photo:
@@ -991,7 +991,7 @@ def process_media_request(message, cat_id, cat_name, admin_mode):
         if req_refs > 0:
             actual_refs = get_total_referrals(user_id)
             if actual_refs < req_refs:
-                return bot.reply_to(message, f"🔒 **Access Denied!**\n\nThe `{cat_name}` category requires at least **{req_refs} successful referrals** to unlock.\nYou currently have {actual_refs} referrals.\n\nUse your `🔗 Referral Link` link to invite more friends!", parse_mode="HTML")
+                return bot.reply_to(message, f"<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>The <b>{cat_name}</b> category requires at least <b>{req_refs} referrals</b> to unlock.\n\nYou currently have {actual_refs} referrals.</i>\n\n<b>Tip:</b> <i>Use your Referral Link to invite more friends!</i>", parse_mode="HTML")
 
         # Points gate — only for paid (media) categories
         if not is_free and points < MEDIA_COST:
@@ -1067,24 +1067,24 @@ def _show_firewall_menu(chat_id, message_id=None):
     markup.add(InlineKeyboardButton("✍️ Edit Firewall Alert", callback_data="fw_edit_msg"))
     markup.add(InlineKeyboardButton("➕ Add Channel", callback_data="fw_add_channel"))
     
-    text = "🔥 **Firewall Management**\n\n"
-    text += f"**Status:** {'Enabled' if enabled else 'Disabled'}\n"
-    text += f"**Current Message:**\n`{get_setting('firewall_message', '')}`\n\n"
-    text += "**Required Channels/Groups:**\n"
+    header = "<b>❖ SECURITY GATE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+    body = f"<i>Status: {'ENABLED' if enabled else 'DISABLED'}\n\nRequired Channels:</i>\n"
     
     if channels:
         for fw_id, btn_name, ch_id, inv_link in channels:
-            text += f"{btn_name} (`{ch_id}`)\n"
-            markup.add(InlineKeyboardButton(f"⚠️ Remove {btn_name}", callback_data=f"fw_remove_{fw_id}"))
+            body += f"• {btn_name} (<code>{ch_id}</code>)\n"
+            markup.add(InlineKeyboardButton(f"🗑️ Remove {btn_name}", callback_data=f"fw_remove_{fw_id}"))
     else:
-        text += "_None added yet._\n"
+        body += "<i>• No channels configured.</i>\n"
         
-    markup.add(InlineKeyboardButton("‹ Back to Admin Panel", callback_data="admin_panel_back"))
+    markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_panel_back"))
+    
+    full_text = header + body
     
     if message_id:
-        bot.edit_message_text("<b>❖ SECURITY GATE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Manage forced-join channels.</i>", chat_id, message_id, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
+        bot.edit_message_text(full_text, chat_id, message_id, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
     else:
-        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown", disable_web_page_preview=True)
+        bot.send_message(chat_id, full_text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("fw_toggle_"))
 def cb_fw_toggle(call):
@@ -1183,13 +1183,13 @@ def cb_admin_tools(call):
     markup.add(InlineKeyboardButton("✍️ Edit Greeting", callback_data="tool_edit_start"))
     markup.add(InlineKeyboardButton("✍️ Edit Captions", callback_data="tool_edit_caption"))
     markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_panel_back"))
-    bot.edit_message_text("🛠️ **Admin Tools**\nCustomize your bot's automated messages:", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ SETTINGS ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Customize your bot's automated messages.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "tool_edit_start")
 def cb_edit_start_init(call):
     if not is_admin(call.from_user.id): return
-    msg = bot.send_message(call.message.chat.id, "✍️ Please send the new **Start Message** text.\n\n_Tip: Use HTML tags! Example:\n<b>bold</b>, <i>italic</i>, <code>code</code>, <blockquote>quote</blockquote>_")
+    msg = bot.send_message(call.message.chat.id, "<b>❖ EDIT GREETING ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Please send the new Start Message text.</i>\n\n<b>Tip:</b> <i>Use HTML tags like &lt;b&gt;, &lt;i&gt;, &lt;code&gt;.</i>", parse_mode="HTML")
     bot.register_next_step_handler(msg, process_start_msg_edit)
     bot.answer_callback_query(call.id)
 
@@ -1197,16 +1197,12 @@ def process_start_msg_edit(message):
     if not is_admin(message.from_user.id): return
     new_text = message.text
     set_setting('start_message', new_text)
-    bot.reply_to(message, "✅ **Start Message Updated!**", parse_mode="HTML")
+    bot.reply_to(message, "✅ <b>Start Message Updated!</b>", parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data == "tool_edit_caption")
 def cb_edit_caption_init(call):
     if not is_admin(call.from_user.id): return
-    msg = bot.send_message(call.message.chat.id, "🎞️ Please send the new **Media Caption Template**.\n\n"
-                                                  "Available Placeholders:\n"
-                                                  "`{cat_name}` - Category Name\n"
-                                                  "`{points}` - User Points Remaining\n\n"
-                                                  "Example: _Here is your {cat_name}! You have {points} left._")
+    msg = bot.send_message(call.message.chat.id, "<b>❖ EDIT CAPTIONS ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Please send the new Media Caption Template.</i>\n\n<b>Available Placeholders:</b>\n<code>{cat_name}</code> - Category Name\n<code>{points}</code> - User Points Remaining\n\n<b>Example:</b> <i>Here is your {cat_name}! You have {points} left.</i>", parse_mode="HTML")
     bot.register_next_step_handler(msg, process_caption_edit)
     bot.answer_callback_query(call.id)
 
@@ -1214,7 +1210,7 @@ def process_caption_edit(message):
     if not is_admin(message.from_user.id): return
     new_text = message.text
     set_setting('media_caption', new_text)
-    bot.reply_to(message, "✅ **Media Caption Updated!**", parse_mode="HTML")
+    bot.reply_to(message, "✅ <b>Media Caption Updated!</b>", parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_stats")
 def cb_admin_stats(call):
@@ -1255,7 +1251,7 @@ def cb_admin_user_list(call):
         
     markup.add(InlineKeyboardButton("‹ Back to Stats", callback_data="admin_stats"))
     
-    bot.edit_message_text("👥 **User Directory**\nSelect a user to view their full profile:", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ USER DIRECTORY ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select a user to view their full profile.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("user_detail_"))
@@ -1318,7 +1314,7 @@ def cb_manage_cats_main(call):
     markup.add(InlineKeyboardButton("➕ Create New Category", callback_data="admin_newcat"))
     markup.add(InlineKeyboardButton("✏️ Edit/Hide/Delete Categories", callback_data="admin_edit_cats_list"))
     markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_panel_back"))
-    bot.edit_message_text("🛠️ **Category Management**\nWhat would you like to do?", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ CATEGORIES ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Create, hide, or delete categories.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_edit_cats_list")
@@ -1330,7 +1326,7 @@ def cb_edit_cats_list(call):
         status = "👻 " if c_hidden else ""
         markup.add(InlineKeyboardButton(f"{status}{c_name}", callback_data=f"edit_cat_opts_{c_id}"))
     markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_manage_categories"))
-    bot.edit_message_text("✏️ **Select Category to Edit**\nGhost icon (👻) means category is hidden from users.", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ EDIT CATEGORY ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select a category to modify its properties.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("edit_cat_opts_"))
@@ -1404,7 +1400,7 @@ def cb_del_cat_init(call):
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("⚠️ YES, DELETE AND WIPE MEDIA ⚠️", callback_data=f"del_cat_confirm_{cat_id}"))
     markup.add(InlineKeyboardButton("⚠️ Cancel", callback_data=f"edit_cat_opts_{cat_id}"))
-    bot.edit_message_text("🚨 **FINAL WARNING!** 🚨\nDeleting this category will permanently erase it AND ALL MEDIA INSIDE IT. This cannot be undone.", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ PURGE WARNING ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>⚠️ Deleting this category will permanently erase it AND ALL MEDIA INSIDE IT. This cannot be undone.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("del_cat_confirm_"))
@@ -1418,7 +1414,7 @@ def cb_del_cat_confirm(call):
 def cb_admin_newcat(call):
     if not is_admin(call.from_user.id): return bot.answer_callback_query(call.id, "Unauthorized")
     bot.answer_callback_query(call.id)
-    bot.send_message(call.message.chat.id, "✏️ **To create a new category, type:**\n`/newcategory <Name>`\n_Example: /newcategory 🏎️ Cars_", parse_mode="HTML")
+    bot.send_message(call.message.chat.id, "<b>❖ NEW CATEGORY ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>To create a new category, type:</i>\n<code>/newcategory &lt;Name&gt;</code>", parse_mode="HTML")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_setcat")
 def cb_admin_setcat(call):
@@ -1430,7 +1426,7 @@ def cb_admin_setcat(call):
     for c_id, c_name, c_hidden in cats: markup.add(InlineKeyboardButton(c_name, callback_data=f"setactive_{c_id}"))
     markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_panel_back"))
     
-    bot.edit_message_text("🏷️ **Select Upload Category**\n\nAll media you send to the bot will be automatically stored there:", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ UPLOAD MEDIA ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select a category to set as your upload destination.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("setactive_"))
@@ -1454,9 +1450,9 @@ def cb_setactive(call):
             InlineKeyboardButton("‹ Back",                         callback_data="admin_setcat")
         )
         bot.edit_message_text(
-            f"🏷️ **Category: {cat_name}**\n\nThis is your first time setting up this category.\nWhat type of content will it hold?",
+            f"<b>❖ CATEGORY SETUP ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Setup for: <b>{cat_name}</b></i>\n\n<i>This is your first time setting up this category.\nWhat type of content will it hold?</i>",
             call.message.chat.id, call.message.message_id,
-            reply_markup=markup, parse_mode="Markdown"
+            reply_markup=markup, parse_mode="HTML"
         )
 
 def _show_category_dashboard(call, cat_id):
@@ -1476,11 +1472,11 @@ def _show_category_dashboard(call, cat_id):
     type_label = type_labels.get(ctype, ctype)
 
     text = (
-        f"📂 **Category Dashboard**\n\n"
-        f"🏷️ **Name:** {cat_name}\n"
-        f"📦 **Content Type:** {type_label}\n"
-        f"📄 **Total Content:** {count} item(s)\n"
-        f"📤 **Total Extractions by Users:** {extractions}\n"
+        f"<b>❖ CATEGORY DASHBOARD ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Configuration for: <b>{cat_name}</b></i>\n\n"
+        f"• <b>Type:</b> <i>{type_label}</i>\n"
+        f"• <b>Items:</b> <i>{count}</i>\n"
+        f"• <b>Stats:</b> <i>{extractions} extractions</i>"
     )
 
     markup = InlineKeyboardMarkup(row_width=2)
@@ -1592,15 +1588,12 @@ def cb_upload_done(call):
 
     # Build summary
     summary = (
-        f"✅ **Upload Session Complete!**\n\n"
-        f"🏷️ Name: **{cat_name}**\n\n"
-        f"📊 **Session Summary:**\n"
-        f"📤 Total sent: **{s['sent']}**\n"
-        f"✅ Saved: **{s['saved']}**\n"
+        f"<b>❖ UPLOAD COMPLETE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"<i>Category: <b>{cat_name}</b></i>\n\n"
+        f"<b>Final Stats:</b>\n"
+        f"<i>Sent: {s['sent']} | Saved: {s['saved']} | Dupes: {s['dupes']}</i>\n\n"
+        f"<i>Total Items: {count}</i>"
     )
-    if s['dupes'] > 0:
-        summary += f"⚠️ Duplicates skipped: **{s['dupes']}**\n"
-    summary += f"\n📆 Total items in category now: **{count}**"
 
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -1665,7 +1658,7 @@ def cb_manage_divs(call):
     cat_id = int(call.data.split('_')[2])
     
     markup = generate_divisions_markup(cat_id)
-    bot.edit_message_text("📁 **Category Folders**\nSelect a chunk to manage:", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ CATEGORY FOLDERS ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select a chunk to manage:</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("manage_page_"))
@@ -1676,7 +1669,7 @@ def cb_manage_page(call):
     page = int(pts[3])
     
     markup = generate_manage_markup(cat_id, page)
-    try: bot.edit_message_text("📁 **Media Explorer**", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    try: bot.edit_message_text("<b>❖ MEDIA EXPLORER ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Browse media items.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     except: pass
     bot.answer_callback_query(call.id)
 
@@ -1708,7 +1701,7 @@ def cb_delmedia(call):
     else: bot.answer_callback_query(call.id, "Not found.")
     
     markup = generate_manage_markup(cat_id, page)
-    try: bot.edit_message_text("📁 **Media Explorer**", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    try: bot.edit_message_text("<b>❖ MEDIA EXPLORER ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Browse media items.</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     except: pass
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("wipe_media_init_"))
@@ -1719,7 +1712,7 @@ def cb_wipe_init(call):
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("⚠️ YES, DELETE EVERYTHING ⚠️", callback_data=f"wipe_media_confirm_{cat_id}"))
     markup.add(InlineKeyboardButton("⚠️ Cancel", callback_data=f"manage_divs_{cat_id}"))
-    bot.edit_message_text("🚨 **WARNING!** 🚨\nAre you sure you want to permanently empty this entire category?", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text("<b>❖ EMPTY CATEGORY ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>⚠️ Are you sure you want to permanently empty this entire category?</i>", call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("wipe_media_confirm_"))
@@ -1747,7 +1740,7 @@ def handle_setreq(message):
         cat_id = int(args[1])
         limit = int(args[2])
         update_category_req(cat_id, limit)
-        bot.reply_to(message, f"✅ Done! The category now requires **{limit}** referrals to access.", parse_mode="HTML")
+        bot.reply_to(message, f"✅ Done! The category now requires <b>{limit}</b> referrals to access.", parse_mode="HTML")
     except:
         bot.reply_to(message, "Invalid number.")
 
@@ -1910,10 +1903,11 @@ def handle_addadmin(message):
     if len(args) != 2 or not args[1].isdigit():
         return bot.reply_to(
             message,
-            "📋 **Usage:** `/addadmin <user_id>`\n"
-            "The user must have started the bot at least once.\n"
-            "Use `/search` to find their user ID.",
-            parse_mode="Markdown"
+            "<b>❖ COMMAND USAGE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+            "<i>To add a new admin, type:</i>\n"
+            "<code>/addadmin &lt;user_id&gt;</code>\n\n"
+            "<i>• The user must have started the bot.\n• Use /search to find user IDs.</i>",
+            parse_mode="HTML"
         )
     target_uid = int(args[1])
     if is_super_admin(target_uid):
@@ -1922,7 +1916,7 @@ def handle_addadmin(message):
     if success:
         bot.reply_to(message, f"✅ User `{target_uid}` is now an admin!\nThey will see the Admin Panel next time they send /start.", parse_mode="HTML")
         try:
-            bot.send_message(target_uid, "👑 You have been granted **Admin access** to this bot!\nSend /start to see your Admin Panel.", parse_mode="HTML")
+            bot.send_message(target_uid, "<b>❖ SYSTEM NOTICE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You have been granted <b>Admin access</b> to this bot!\nSend /start to see your Admin Panel.</i>", parse_mode="HTML")
         except: pass
     else:
         bot.reply_to(message, f"ℹ️ User `{target_uid}` is already an admin.", parse_mode="HTML")
@@ -1934,7 +1928,7 @@ def handle_removeadmin(message):
         return bot.reply_to(message, "⛔ Only super admins can use this command.")
     args = message.text.split()
     if len(args) != 2 or not args[1].isdigit():
-        return bot.reply_to(message, "📋 **Usage:** `/removeadmin <user_id>`", parse_mode="HTML")
+        return bot.reply_to(message, "<b>❖ COMMAND USAGE ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<code>/removeadmin &lt;user_id&gt;</code>", parse_mode="HTML")
     target_uid = int(args[1])
     if is_super_admin(target_uid):
         return bot.reply_to(message, "⛔ Cannot remove a super admin. Remove them from the `ADMIN_IDS` environment variable instead.")
