@@ -937,127 +937,6 @@ def handle_gif_sticker_upload(message):
     s['sent'] += 1; s['saved'] += 1
     _update_session_message(admin_id)
 
-@bot.message_handler(func=lambda message: True)
-def handle_text(message):
-    user_id = message.from_user.id
-    admin_mode = is_admin(user_id)
-    text = message.text
-
-    # 🛡️ Security Gate check — blocks non-admins who haven't joined required channels
-    if not admin_mode:
-        missing = check_user_firewall(user_id)
-        if missing:
-            send_firewall_prompt(message.chat.id, missing)
-            return
-    
-    if text == "💰 Balance":
-        user = get_user(user_id)
-        if not user: return bot.reply_to(message, "Please type /start first.")
-        bot.reply_to(message, f"<b>❖ ACCOUNT INFO ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>💳 Balance: {user[2]} Points\n📅 Joined: {user[4]}</i>", parse_mode="HTML")
-        return
-        
-    if text == "🔗 Referral":
-        points = get_points(user_id)
-        referral_link = f"https://t.me/{bot.get_me().username}?start={user_id}"
-        bot.reply_to(message, f"<b>❖ REFERRAL SYSTEM ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>🏆 Your Points: {points}</i>\n\n<b>🔗 Invite Link:</b>\n<code>{referral_link}</code>\n\n<i>Invite friends to earn +{REFERRAL_BONUS} points each!</i>", parse_mode="HTML")
-        return
-        
-    if text == "👑 Admin Panel":
-        if not admin_mode:
-            return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You do not have permission to open the Admin Panel.</i>", parse_mode="HTML")
-        bot.reply_to(message, "<b>❖ ADMIN CONTROL PANEL ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select an operation below to manage the bot.</i>", reply_markup=get_admin_panel_markup(user_id), parse_mode="HTML")
-        return
-
-    # 📝 Text upload during active session
-    if admin_mode and text and not text.startswith('/'):
-        active_cat_id = admin_active_category.get(user_id)
-        ctype = admin_content_type.get(user_id)
-        if active_cat_id and ctype == 'text':
-            s = admin_session_stats.setdefault(user_id, {'sent': 0, 'saved': 0, 'dupes': 0})
-            s['sent'] += 1
-            if check_duplicate_text(text, active_cat_id):
-                s['dupes'] += 1
-            else:
-                add_text_content(text, active_cat_id)
-                s['saved'] += 1
-            try: bot.delete_message(message.chat.id, message.message_id)
-            except: pass
-            _update_session_message(user_id)
-            return
-
-    # Check if text targets a Media Category dynamically
-    categories = get_categories()
-    for cat_id, cat_name, cat_hidden in categories:
-        if text == cat_name:
-            process_media_request(message, cat_id, cat_name, admin_mode)
-            return
-
-def process_media_request(message, cat_id, cat_name, admin_mode):
-    user_id = message.from_user.id
-    points = get_points(user_id)
-    ctype = get_category_content_type(cat_id)  # 'media', 'gif_sticker', or 'text'
-    is_free = ctype in ('text', 'gif_sticker')  # non-media types are always free
-
-    if not admin_mode:
-        # Referral gate (applies to all types)
-        req_refs = get_category_req(cat_id)
-        if req_refs > 0:
-            actual_refs = get_total_referrals(user_id)
-            if actual_refs < req_refs:
-                return bot.reply_to(message, f"<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>The <b>{cat_name}</b> category requires at least <b>{req_refs} referrals</b> to unlock.\n\nYou currently have {actual_refs} referrals.</i>\n\n<b>Tip:</b> <i>Use your Referral Link to invite more friends!</i>", parse_mode="HTML")
-
-        # Points gate — only for paid (media) categories
-        if not is_free and points < MEDIA_COST:
-            return bot.reply_to(message, f"⚠️ You don't have enough points left!\nClick '🔗 Referral Link' to get your invite link.")
-
-    media = get_random_media(cat_id)
-    if not media:
-        return bot.reply_to(message, f"Currently there is no content available in {cat_name}. Check back later!")
-
-    _id, file_id, media_type = media
-
-    if not admin_mode and not is_free:
-        update_points(user_id, -MEDIA_COST)
-        update_media_received(user_id)
-        increment_user_category_stat(user_id, cat_id)
-        new_points = points - MEDIA_COST
-        caption_tmpl = get_setting('media_caption', "<blockquote>Enjoy this from <b>{cat_name}</b>! 🍿</blockquote>\n<code>Remaining points: {points}</code>")
-        caption_text = caption_tmpl.replace("{cat_name}", cat_name).replace("{points}", str(new_points))
-    elif not admin_mode and is_free:
-        update_media_received(user_id)
-        increment_user_category_stat(user_id, cat_id)
-        caption_text = f"🍿 {cat_name}"
-    else:
-        caption_text = f"🍿 {cat_name}\n[👑 Admin View: Unlimited]\n[ID: {_id}]"
-
-    # Fetch the content field for text items
-    conn = get_db()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT content FROM media WHERE id = %s", (_id,))
-        row = cursor.fetchone()
-        content_text = row[0] if row else None
-    finally:
-        release_db(conn)
-
-    try:
-        if media_type == 'text':
-            bot.send_message(user_id, content_text or "📝 (empty)", parse_mode="HTML")
-        elif media_type == 'animation':
-            bot.send_animation(user_id, file_id, caption=caption_text if not is_free else None, parse_mode="HTML")
-        elif media_type == 'sticker':
-            bot.send_sticker(user_id, file_id)
-        elif media_type == 'photo':
-            bot.send_photo(user_id, file_id, caption=caption_text, parse_mode="HTML")
-        elif media_type == 'video':
-            bot.send_video(user_id, file_id, caption=caption_text, parse_mode="HTML")
-        else:
-            bot.send_document(user_id, file_id, caption=caption_text, parse_mode="HTML")
-    except:
-        # Refund points on failure if it was a paid request
-        if not admin_mode and not is_free:
-            update_points(user_id, MEDIA_COST)
-
 # ================= Admin Callbacks =================
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_firewall")
@@ -2108,6 +1987,133 @@ if __name__ == "__main__":
             threading.Thread(target=lambda: app.run(host="0.0.0.0", port=port, use_reloader=False), daemon=True).start()
             threading.Thread(target=self_ping, daemon=True).start()
             print(f"Dummy health server and Anti-Sleep pinger started on port {port}.")
+
+        # Define text handler at the very end to prevent it from blocking command handlers
+        @bot.message_handler(func=lambda message: True)
+        def handle_text(message):
+            user_id = message.from_user.id
+            admin_mode = is_admin(user_id)
+            text = message.text
+
+            # 🛡️ Security Gate check — blocks non-admins who haven't joined required channels
+            if not admin_mode:
+                missing = check_user_firewall(user_id)
+                if missing:
+                    send_firewall_prompt(message.chat.id, missing)
+                    return
+            
+            if text == "💰 Balance":
+                user = get_user(user_id)
+                if not user: return bot.reply_to(message, "Please type /start first.")
+                bot.reply_to(message, f"<b>❖ ACCOUNT INFO ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>💳 Balance: {user[2]} Points\n📅 Joined: {user[4]}</i>", parse_mode="HTML")
+                return
+                
+            if text == "🔗 Referral":
+                points = get_points(user_id)
+                referral_link = f"https://t.me/{bot.get_me().username}?start={user_id}"
+                bot.reply_to(message, f"<b>❖ REFERRAL SYSTEM ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>🏆 Your Points: {points}</i>\n\n<b>🔗 Invite Link:</b>\n<code>{referral_link}</code>\n\n<i>Invite friends to earn +{REFERRAL_BONUS} points each!</i>", parse_mode="HTML")
+                return
+                
+            if text == "👑 Admin Panel":
+                if not admin_mode:
+                    return bot.reply_to(message, "<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>You do not have permission to open the Admin Panel.</i>", parse_mode="HTML")
+                bot.reply_to(message, "<b>❖ ADMIN CONTROL PANEL ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select an operation below to manage the bot.</i>", reply_markup=get_admin_panel_markup(user_id), parse_mode="HTML")
+                return
+
+            # 📝 Text upload during active session
+            if admin_mode and text and not text.startswith('/'):
+                active_cat_id = admin_active_category.get(user_id)
+                ctype = admin_content_type.get(user_id)
+                if active_cat_id and ctype == 'text':
+                    s = admin_session_stats.setdefault(user_id, {'sent': 0, 'saved': 0, 'dupes': 0})
+                    s['sent'] += 1
+                    if check_duplicate_text(text, active_cat_id):
+                        s['dupes'] += 1
+                    else:
+                        add_text_content(text, active_cat_id)
+                        s['saved'] += 1
+                    try: bot.delete_message(message.chat.id, message.message_id)
+                    except: pass
+                    _update_session_message(user_id)
+                    return
+
+            # Check if text targets a Media Category dynamically
+            categories = get_categories()
+            for cat_id, cat_name, cat_hidden in categories:
+                if text == cat_name:
+                    process_media_request(message, cat_id, cat_name, admin_mode)
+                    return
+
+        def process_media_request(message, cat_id, cat_name, admin_mode):
+            user_id = message.from_user.id
+            points = get_points(user_id)
+            ctype = get_category_content_type(cat_id)  # 'media', 'gif_sticker', or 'text'
+            is_free = ctype in ('text', 'gif_sticker')  # non-media types are always free
+
+            if not admin_mode:
+                # Referral gate (applies to all types)
+                req_refs = get_category_req(cat_id)
+                if req_refs > 0:
+                    actual_refs = get_total_referrals(user_id)
+                    if actual_refs < req_refs:
+                        return bot.reply_to(message, f"<b>❖ ACCESS DENIED ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>The <b>{cat_name}</b> category requires at least <b>{req_refs} referrals</b> to unlock.\n\nYou currently have {actual_refs} referrals.</i>\n\n<b>Tip:</b> <i>Use your Referral Link to invite more friends!</i>", parse_mode="HTML")
+
+                # Points gate — only for paid (media) categories
+                if not is_free and points < MEDIA_COST:
+                    return bot.reply_to(message, f"⚠️ You don't have enough points left!\nClick '🔗 Referral Link' to get your invite link.")
+
+            media = get_random_media(cat_id)
+            if not media:
+                return bot.reply_to(message, f"Currently there is no content available in {cat_name}. Check back later!")
+
+            _id, file_id, media_type = media
+
+            if not admin_mode and not is_free:
+                update_points(user_id, -MEDIA_COST)
+                update_media_received(user_id)
+                increment_user_category_stat(user_id, cat_id)
+                new_points = points - MEDIA_COST
+                caption_tmpl = get_setting('media_caption', "<blockquote>Enjoy this from <b>{cat_name}</b>! 🍿</blockquote>\n<code>Remaining points: {points}</code>")
+                caption_text = caption_tmpl.replace("{cat_name}", cat_name).replace("{points}", str(new_points))
+            elif not admin_mode and is_free:
+                update_media_received(user_id)
+                increment_user_category_stat(user_id, cat_id)
+                caption_text = f"🍿 {cat_name}"
+            else:
+                caption_text = f"🍿 {cat_name}\n[👑 Admin View: Unlimited]\n[ID: {_id}]"
+
+            # Fetch the content field for text items
+            conn = get_db()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT content FROM media WHERE id = %s", (_id,))
+                row = cursor.fetchone()
+                content_text = row[0] if row else None
+            finally:
+                release_db(conn)
+
+            try:
+                if media_type == 'text':
+                    bot.send_message(user_id, content_text or "📝 (empty)", parse_mode="HTML")
+                elif media_type == 'animation':
+                    bot.send_animation(user_id, file_id, caption=caption_text if not is_free else None, parse_mode="HTML")
+                elif media_type == 'sticker':
+                    bot.send_sticker(user_id, file_id)
+                elif media_type == 'photo':
+                    bot.send_photo(user_id, file_id, caption=caption_text if not is_free else None, parse_mode="HTML")
+                elif media_type == 'video':
+                    bot.send_video(user_id, file_id, caption=caption_text if not is_free else None, parse_mode="HTML")
+                elif media_type == 'document':
+                    bot.send_document(user_id, file_id, caption=caption_text if not is_free else None, parse_mode="HTML")
+                elif media_type == 'audio':
+                    bot.send_audio(user_id, file_id, caption=caption_text if not is_free else None, parse_mode="HTML")
+                elif media_type == 'voice':
+                    bot.send_voice(user_id, file_id, caption=caption_text if not is_free else None, parse_mode="HTML")
+                elif media_type == 'video_note':
+                    bot.send_video_note(user_id, file_id)
+            except Exception as e:
+                print(f"Error sending media: {e}")
+                bot.send_message(user_id, "⚠️ Error sending media item.")
 
         try: 
             bot.infinity_polling()
