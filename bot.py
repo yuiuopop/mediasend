@@ -855,7 +855,7 @@ def _update_session_message(admin_id):
             _build_session_text(cat_id, cat_name, ctype, admin_id),
             chat_id, msg_id,
             reply_markup=_build_session_markup(cat_id),
-            parse_mode="HTML"
+            parse_mode="Markdown"
         )
     except: pass
 
@@ -961,12 +961,8 @@ def handle_text(message):
         bot.reply_to(message, f"<b>❖ REFERRAL SYSTEM ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>🏆 Your Points: {points}</i>\n\n<b>🔗 Invite Link:</b>\n<code>{referral_link}</code>\n\n<i>Invite friends to earn +{REFERRAL_BONUS} points each!</i>", parse_mode="HTML")
         return
         
-    if text == "👑 Admin Panel":
-        print(f"Admin Panel button pressed by {user_id}. Admin status: {admin_mode}")
-        if admin_mode:
-            bot.reply_to(message, "<b>❖ ADMIN CONTROL PANEL ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select an operation below to manage the bot.</i>", reply_markup=get_admin_panel_markup(user_id), parse_mode="HTML")
-        else:
-            bot.reply_to(message, "⚠️ You are not authorized to access the Admin Panel.")
+    if text == "👑 Admin Panel" and admin_mode:
+        bot.reply_to(message, "<b>❖ ADMIN CONTROL PANEL ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n<i>Select an operation below to manage the bot.</i>", reply_markup=get_admin_panel_markup(user_id), parse_mode="HTML")
         return
 
     # 📝 Text upload during active session
@@ -1132,7 +1128,7 @@ def cb_fw_add_channel(call):
         "**Example:**\n"
         "`Join Our VIP - -10012345678 - https://t.me/+AbCdEfGh`\n\n"
         "_(Make sure the bot is an admin in that channel/group to verify members!)_",
-        parse_mode="HTML"
+        parse_mode="Markdown"
     )
     bot.register_next_step_handler(msg, process_fw_add_channel)
     bot.answer_callback_query(call.id)
@@ -1230,10 +1226,7 @@ def process_caption_edit(message):
 def cb_admin_stats(call):
     if not is_admin(call.from_user.id): return bot.answer_callback_query(call.id, "Unauthorized")
     users_count, media_count, total_received = get_stats()
-    text = (f"<b>❖ BOT STATISTICS ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
-            f"• <b>Total Users:</b> <i>{users_count}</i>\n"
-            f"• <b>Media Stored:</b> <i>{media_count}</i>\n"
-            f"• <b>Distributed:</b> <i>{total_received}</i>")
+    text = (f"📊 **Bot Stats Dashboard**\n\n👥 **Total Registered Users:** {users_count}\n📦 **Total Media Uploaded:** {media_count}\n📤 **Total Media Distributed:** {total_received}")
     
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton("👥 User List", callback_data="admin_user_list_0"))
@@ -1320,7 +1313,7 @@ def cb_givepoints_init(call):
         f"💰 **Give Points to User `{target_uid}`**\n\n"
         f"Send the number of points to add (use negative to deduct, e.g. `-5`).\n"
         f"Type /cancel to abort.",
-        parse_mode="HTML"
+        parse_mode="Markdown"
     )
     bot.register_next_step_handler(msg, process_givepoints, target_uid, back_page)
 
@@ -1386,7 +1379,7 @@ def cb_edit_cat_opts(call):
         f"✏️ **Editing: {c_name}**\n"
         f"Status: `{status_text}` Position: `{idx + 1} of {len(cats)}`",
         call.message.chat.id, call.message.message_id,
-        reply_markup=markup, parse_mode="HTML"
+        reply_markup=markup, parse_mode="Markdown"
     )
     bot.answer_callback_query(call.id)
 
@@ -1778,7 +1771,7 @@ def process_givepoints(message, target_uid, back_page):
         message,
         f"✅ **Done!** `{abs(amount)}` points {action} for user `{target_uid}`.\n"
         f"💰 Their new balance: **{new_balance} points**.",
-        parse_mode="HTML"
+        parse_mode="Markdown"
     )
     # Notify the user silently
     try:
@@ -1787,7 +1780,7 @@ def process_givepoints(message, target_uid, back_page):
             target_uid,
             f"🎁 An admin has adjusted your balance: **{direction} points**!\n"
             f"💰 Your new balance: **{new_balance} points**.",
-            parse_mode="HTML"
+            parse_mode="Markdown"
         )
     except: pass
 
@@ -1803,7 +1796,7 @@ def handle_givepoints(message):
             "_Examples:_\n"
             "`/givepoints 123456789 50` → add 50 points\n"
             "`/givepoints 123456789 -10` → deduct 10 points",
-            parse_mode="HTML"
+            parse_mode="Markdown"
         )
     try:
         target_uid = int(args[1])
@@ -1822,7 +1815,7 @@ def handle_givepoints(message):
         message,
         f"✅ `{abs(amount)}` points {action} for user `{target_uid}` (@{user[1] or 'no username'}).\n"
         f"💰 New balance: **{new_balance} points**.",
-        parse_mode="HTML"
+        parse_mode="Markdown"
     )
     try:
         direction = f"+{amount}" if amount >= 0 else str(amount)
@@ -1830,7 +1823,7 @@ def handle_givepoints(message):
             target_uid,
             f"🎁 An admin has adjusted your balance: **{direction} points**!\n"
             f"💰 Your new balance: **{new_balance} points**.",
-            parse_mode="HTML"
+            parse_mode="Markdown"
         )
     except: pass
 
@@ -1847,7 +1840,7 @@ def handle_search(message):
             "_Search by:_\n"
             "User ID (e.g. `/search 123456789`)\n"
             "Username (e.g. `/search john` or `/search @john`)",
-            parse_mode="HTML"
+            parse_mode="Markdown"
         )
 
     query = args[1].strip().lstrip('@')
@@ -1868,7 +1861,7 @@ def handle_search(message):
         message,
         f"🔍 **Search results for** `{query}` — {len(results)} found:",
         reply_markup=markup,
-        parse_mode="HTML"
+        parse_mode="Markdown"
     )
 
 # ================= Admin Management =================
@@ -1881,23 +1874,23 @@ def cb_manage_admins(call):
     sub_admins = get_all_admins_db()
     markup = InlineKeyboardMarkup(row_width=1)
     
-    text = "👥 **Admin Management**\n\n"
-    text += f"🔒 **Super Admins** (from environment):\n"
+    header = "<b>❖ ADMIN TEAM ❖</b>\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+    body = "<b>Super Admins:</b>\n"
     for sa_id in ADMIN_IDS:
-        text += f"`{sa_id}`\n"
-    text += f"\n👤 **Sub-Admins** ({len(sub_admins)} added):\n"
+        body += f"• <code>{sa_id}</code>\n"
     
+    body += f"\n<b>Sub-Admins ({len(sub_admins)}):</b>\n"
     if sub_admins:
         for sa_id, added_at in sub_admins:
-            text += f"`{sa_id}` — added {str(added_at)[:10]}\n"
+            body += f"• <code>{sa_id}</code> (since {str(added_at)[:10]})\n"
             markup.add(InlineKeyboardButton(f"🚫 Remove {sa_id}", callback_data=f"removeadmin_confirm_{sa_id}"))
     else:
-        text += "_No sub-admins added yet._\n"
+        body += "<i>• No sub-admins configured.</i>\n"
     
-    text += "\nℹ️ Use `/addadmin <user_id>` to add a new admin."
+    body += "\n<b>Tip:</b> <i>Use /addadmin to add members.</i>"
     markup.add(InlineKeyboardButton("‹ Back", callback_data="admin_panel_back"))
     
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+    bot.edit_message_text(header + body, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("removeadmin_confirm_"))
